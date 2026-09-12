@@ -139,7 +139,7 @@ static void scrotSelectionCreate(void)
 
     sel->create();
 
-    unsigned int const EVENT_MASK = ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
+    unsigned int const EVENT_MASK = PointerMotionMask | ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
 
     int ret;
     struct timespec t = clockNow();
@@ -172,7 +172,7 @@ static void scrotSelectionDestroy(void)
 static void scrotSelectionMotionDraw(int x0, int y0, int x1, int y1)
 {
     const struct Selection *const sel = &selection;
-    const unsigned int EVENT_MASK = ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
+    const unsigned int EVENT_MASK = PointerMotionMask | ButtonMotionMask | ButtonPressMask | ButtonReleaseMask;
     Cursor cursor = None;
 
     if (x1 > x0 && y1 > y0)
@@ -229,7 +229,7 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
         XNextEvent(disp, &ev);
         switch (ev.type) {
         case MotionNotify:
-            if (isButtonPressed)
+            if (isButtonPressed || isStartSelectionKeyPressed)
                 scrotSelectionMotionDraw(rx, ry, ev.xmotion.x, ev.xmotion.y);
             break;
         case ButtonPress:
@@ -255,44 +255,56 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
             KeySym *keysym = NULL;
             int keycode; /*dummy*/
 			      struct Point p = { ev.xkey.x, ev.xkey.y };
+            struct Point r = { rx, ry };
 			      int delta = (ev.xkey.state & ControlMask) ? 1 :
 			            ((ev.xkey.state & ShiftMask) ? 128 : 16);
 
-            keysym = XGetKeyboardMapping(disp, ev.xkey.keycode, 1, &keycode);
+            if (opt.ignoreKeyboard)
+                break;
 
+            keysym = XGetKeyboardMapping(disp, ev.xkey.keycode, 1, &keycode);
             if (!keysym)
                 break;
 
-            if (opt.useKeyboard) {
-                switch (*keysym) {
-                case XK_l:
-                case XK_Right:
-                    if ((p.x += delta) > scr->width)
-                        p.x = scr->width;
-                    break;
-                case XK_h:
-                case XK_Left:
-                    if ((p.x -= delta) < 0)
-                        p.x = 0;
-                    break;
-                case XK_j:
-                case XK_Down:
-                    if ((p.y += delta) > scr->height)
-                        p.y = scr->height;
-                    break;
-                case XK_k:
-                case XK_Up:
-                    if ((p.y -= delta) < 0)
-                        p.y = 0;
-                    break;
-                case XK_q:
-                case XK_Escape:
-                    done = ABORT;
-                    break;
-                case XK_space:
+            switch (*keysym) {
+            case XK_l:
+            case XK_Right:
+                if ((p.x += delta) > scr->width)
+                    p.x = scr->width;
+                if ((r.x += delta) > scr->width)
+                    r.x = scr->width;
+                break;
+            case XK_h:
+            case XK_Left:
+                if ((p.x -= delta) < 0)
+                    p.x = 0;
+                if ((r.x -= delta) < 0)
+                    r.x = 0;
+                break;
+            case XK_j:
+            case XK_Down:
+                if ((p.y += delta) > scr->height)
+                    p.y = scr->height;
+                if ((r.y += delta) > scr->height)
+                    r.y = scr->height;
+                break;
+            case XK_k:
+            case XK_Up:
+                if ((p.y -= delta) < 0)
+                    p.y = 0;
+                if ((r.y -= delta) < 0)
+                    r.y = 0;
+                break;
+            case XK_q:
+            case XK_Escape:
+                done = ABORT;
+                break;
+            case XK_space:
+                if (opt.useKeyboard) {
                     target = scrotGetWindow(disp, ev.xbutton.subwindow, ev.xbutton.x, ev.xbutton.y);
                     if (target == None)
                         target = root;
+
                     if (!isStartSelectionKeyPressed) {
                         isStartSelectionKeyPressed = true;
                         rx = p.x; ry = p.y;
@@ -301,23 +313,31 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                         done = DONE;
                     }
                     break;
-                default:
-                    break;
                 }
-
-                if (p.x != ev.xkey.x_root || p.y != ev.xkey.y_root) {
-                    XWarpPointer(disp, None, root, 0, 0, 0, 0, p.x, p.y);
-                }
-
-                if (isStartSelectionKeyPressed && (rx != p.x || ry != p.y)) {
-                    scrotSelectionMotionDraw(rx, ry, p.x, p.y);
-                }
-            } else if (!opt.ignoreKeyboard) {
-                warnx("Key was pressed, aborting shot");
-                done = ABORT;
-            } else {
-                if (*keysym == XK_Escape) {
+            default:
+                if (!opt.useKeyboard) {
+                    warnx("Key was pressed, aborting shot");
                     done = ABORT;
+                }
+                break;
+            }
+
+            if (done == WAIT) {
+                if (opt.useKeyboard) {
+                    if (ev.xkey.state & Mod1Mask) {
+                        rx = r.x; ry = r.y;
+                        scrotSelectionMotionDraw(rx, ry, 
+                            ev.xkey.x_root, ev.xkey.y_root);
+                    } else {
+                        if (p.x != ev.xkey.x_root || p.y != ev.xkey.y_root)
+                            XWarpPointer(disp, None, root, 0, 0, 0, 0, p.x, p.y);
+                        if (isStartSelectionKeyPressed && (rx != p.x || ry != p.y))
+                            scrotSelectionMotionDraw(rx, ry, p.x, p.y);
+                    }
+                } 
+                else {
+                    rx = r.x; ry = r.y;
+                    scrotSelectionMotionDraw(rx, ry, ev.xkey.x, ev.xkey.y);
                 }
             }
 
