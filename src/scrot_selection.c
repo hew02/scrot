@@ -301,7 +301,8 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                 break;
             case XK_space:
                 if (opt.useKeyboard) {
-                    target = scrotGetWindow(disp, ev.xbutton.subwindow, ev.xbutton.x, ev.xbutton.y);
+                    target = scrotGetWindow(disp, ev.xbutton.subwindow,
+                        ev.xbutton.x, ev.xbutton.y);
                     if (target == None)
                         target = root;
 
@@ -314,6 +315,7 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                     }
                     break;
                 }
+                // fallthrough
             default:
                 if (!opt.useKeyboard) {
                     warnx("Key was pressed, aborting shot");
@@ -324,9 +326,10 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
 
             if (done == WAIT) {
                 if (opt.useKeyboard) {
-                    if (ev.xkey.state & Mod1Mask) {
+                    if ((isStartSelectionKeyPressed || isButtonPressed)
+                        && ev.xkey.state & Mod1Mask) {
                         rx = r.x; ry = r.y;
-                        scrotSelectionMotionDraw(rx, ry, 
+                        scrotSelectionMotionDraw(rx, ry,
                             ev.xkey.x_root, ev.xkey.y_root);
                     } else {
                         if (p.x != ev.xkey.x_root || p.y != ev.xkey.y_root)
@@ -334,7 +337,7 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                         if (isStartSelectionKeyPressed && (rx != p.x || ry != p.y))
                             scrotSelectionMotionDraw(rx, ry, p.x, p.y);
                     }
-                } 
+                }
                 else {
                     rx = r.x; ry = r.y;
                     scrotSelectionMotionDraw(rx, ry, ev.xkey.x, ev.xkey.y);

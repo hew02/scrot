@@ -74,8 +74,8 @@ enum {
     SELECTION_OPACITY_DEFAULT = 100,
 };
 
-struct Point { 
-  int x, y; 
+struct Point {
+  int x, y;
 };
 
 struct SelectionRect {
