@@ -233,7 +233,7 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                 scrotSelectionMotionDraw(rx, ry, ev.xmotion.x, ev.xmotion.y);
             break;
         case ButtonPress:
-            if (!isButtonPressed) {
+            if (!isButtonPressed && !isStartSelectionKeyPressed) {
                 isButtonPressed = true;
                 buttonId = ev.xbutton.button;
                 rx = ev.xbutton.x;
@@ -241,9 +241,9 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                 target = scrotGetWindow(disp, ev.xbutton.subwindow, ev.xbutton.x, ev.xbutton.y);
                 if (target == None)
                     target = root;
-            } else {
-                warnx("Alternate button pressed, aborting shot");
-                done = ABORT;
+            } 
+            else {
+                done = DONE;
             }
             break;
         case ButtonRelease:
@@ -306,7 +306,7 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                     if (target == None)
                         target = root;
 
-                    if (!isStartSelectionKeyPressed) {
+                    if (!isStartSelectionKeyPressed && !isButtonPressed) {
                         isStartSelectionKeyPressed = true;
                         rx = p.x; ry = p.y;
                     }
@@ -315,12 +315,18 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                     }
                     break;
                 }
+                done = ABORT;
+                break;
+            case XK_Control_L:
+            case XK_Control_R:
+            case XK_Shift_L:
+            case XK_Shift_R:
+                if (isButtonPressed)
+                    break;
                 // fallthrough
             default:
-                if (!opt.useKeyboard) {
-                    warnx("Key was pressed, aborting shot");
+                if (!opt.useKeyboard)
                     done = ABORT;
-                }
                 break;
             }
 
@@ -331,7 +337,8 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                         rx = r.x; ry = r.y;
                         scrotSelectionMotionDraw(rx, ry,
                             ev.xkey.x_root, ev.xkey.y_root);
-                    } else {
+                    } 
+                    else {
                         if (p.x != ev.xkey.x_root || p.y != ev.xkey.y_root)
                             XWarpPointer(disp, None, root, 0, 0, 0, 0, p.x, p.y);
                         if (isStartSelectionKeyPressed && (rx != p.x || ry != p.y))
@@ -339,9 +346,18 @@ static bool scrotSelectionGetUserSel(struct SelectionRect *selectionRect)
                     }
                 }
                 else {
-                    rx = r.x; ry = r.y;
-                    scrotSelectionMotionDraw(rx, ry, ev.xkey.x, ev.xkey.y);
+                    if (isButtonPressed) {
+                        rx = r.x; ry = r.y;
+                        scrotSelectionMotionDraw(rx, ry, ev.xkey.x, ev.xkey.y);
+                    } 
+                    else {
+                        done = ABORT;
+                    }
                 }
+            }
+
+            if (done == ABORT) {
+                warnx("Key was pressed, aborting shot");
             }
 
             XFree(keysym);

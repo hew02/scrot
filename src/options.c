@@ -93,7 +93,7 @@ static const struct option lopts[] = {
     {"freeze",          no_argument,        NULL,   'f'},
     {"help",            no_argument,        NULL,   'h'},
     {"ignorekeyboard",  no_argument,        NULL,   'i'},
-    {"usekeyboard",     no_argument,        NULL,   'K'},
+    {"keyboard",        no_argument,        NULL,   'K'},
     {"stack",           optional_argument,  NULL,   'k'},
     {"line",            required_argument,  NULL,   'l'},
     {"monitor",         required_argument,  NULL,   'M'},
